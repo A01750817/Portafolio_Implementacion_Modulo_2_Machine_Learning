@@ -5,7 +5,7 @@ from ucimlrepo import fetch_ucirepo
 iris = fetch_ucirepo(id=53) 
 
 
-class Network:
+class NeuralNet:
     def __init__(self, learning_rate, activation_function :str, layer_neurons: list, epoch: int, batch_size: int):
         self.learning_rate = learning_rate
         self.activation_function = activation_function
@@ -38,7 +38,6 @@ class Network:
             self.bias.append(b)
             n_in = n_out
 
-    
     #TODO: funcion de regularizcion L1,L2 ,Dropout
     #TODO: more activation functions   
     #TODO: MANEJOR DE activacion por capa
@@ -224,7 +223,7 @@ def stratified_split(X, y, test_size=0.3, seed=42):
     rng = np.random.default_rng(seed)
     X = np.asarray(X)
     y = np.asarray(y)
-    if y.ndim > 1:  # FIX: aplastar etiquetas
+    if y.ndim > 1:  # aplastar etiquetas para que sea 1D
         y = y.ravel()
     classes, y_idx = np.unique(y, return_inverse=True)
     train_idx = []
@@ -239,7 +238,10 @@ def stratified_split(X, y, test_size=0.3, seed=42):
     rng.shuffle(train_idx); rng.shuffle(test_idx)
     return X[train_idx], X[test_idx], y[train_idx], y[test_idx]
 
-modelo1 = Network(learning_rate=0.01, 
+
+
+#para probar nomas
+modelo1 = NeuralNet(learning_rate=0.01, 
                   activation_function='ReLu', 
                   layer_neurons=[8,4], 
                   epoch=200, 
@@ -247,7 +249,7 @@ modelo1 = Network(learning_rate=0.01,
 
 X = iris.data.features.to_numpy()
 y = iris.data.targets.to_numpy()
-if y.ndim > 1:   # FIX: aplastar aquí también
+if y.ndim > 1:   # aplastar etiquetas
     y = y.ravel()
 
 
