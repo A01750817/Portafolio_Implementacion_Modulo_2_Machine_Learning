@@ -205,23 +205,41 @@ class Network:
 
 
 
-modelo1 = Network(0.1, 'sigmoid', [8,4], 50, 32)
-#preparar datos
-x = iris.data.features.to_numpy()
-y = iris.data.targets
-#dividir en train y test
-x_train = x[:100]
-y_train = y[:100]
+def stratified_split(X, y, test_size=0.3, seed=42):
+    rng = np.random.default_rng(seed)
+    X = np.asarray(X)
+    y = np.asarray(y)
+    classes, y_idx = np.unique(y, return_inverse=True)
+    train_idx = []
+    test_idx = []
+    for c in range(len(classes)):
+        idx_c = np.where(y_idx == c)[0]
+        rng.shuffle(idx_c)
+        n_test = int(len(idx_c) * test_size)
+        test_idx.extend(idx_c[:n_test])
+        train_idx.extend(idx_c[n_test:])
+    train_idx = np.array(train_idx); test_idx = np.array(test_idx)
+    rng.shuffle(train_idx); rng.shuffle(test_idx)
+    return X[train_idx], X[test_idx], y[train_idx], y[test_idx]
 
-x_test = x[100:]   # Últimos 50 para prueba
-y_test = y[100:]
+modelo1 = Network(learning_rate=0.01, 
+                  activation_function='ReLu', 
+                  layer_neurons=[8,4], 
+                  epoch=150, 
+                  batch_size=16)
 
-# TODO: implementar cross-validation
-modelo1.fit(x_train,y_train)
+X = iris.data.features.to_numpy()
+y = iris.data.targets.to_numpy()
 
-# Evaluar en test
-y_pred = modelo1.predict(x_test)
-y_test_idx = np.unique(y_train.to_numpy(), return_inverse=True)[1][50:]  # Obtener índices correctos
-test_acc = np.mean(y_pred == y_test_idx)
-print(f"Precisión en test: {test_acc:.3f}")
+# (opcional) escalar
+X = (X - X.mean(axis=0)) / X.std(axis=0)
 
+X_train, X_test, y_train, y_test = stratified_split(X, y, test_size=0.3, seed=7)
+
+modelo1.fit(X_train, y_train)
+
+y_pred = modelo1.predict(X_test)
+
+# Como el modelo vio las 3 clases, índices ya coinciden
+test_acc = np.mean(y_pred == np.unique(y_test, return_inverse=True)[1])
+print(f"Accuracy test: {test_acc:.3f}")
