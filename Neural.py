@@ -19,14 +19,20 @@ class Network:
         limit = np.sqrt( 6 / (n_in + n_out))
         weights = np.random.uniform(-limit, limit, (n_in, n_out))
         return weights
+    
+    
+    def _randomWeightsHe(self, n_in, n_out):
+        return np.random.randn(n_in, n_out) * (np.sqrt(2.0 / n_in) * 0.5)
 
     def _generateWeight(self):
-        # entre el layer de entrada y el primer oculto es in 4 out 8
         self.weights = []
         self.bias = []
         n_in = self.input_features
-        for n_out in self.layer_neurons + [self.output_layer]: #sumamos la capa de salida para ligar la ultima capa oculta con la de salida
-            W =self._randomWeightsXavier(n_in, n_out)
+        for n_out in self.layer_neurons + [self.output_layer]:
+            if self.activation_function == 'ReLu':
+                W = self._randomWeightsHe(n_in, n_out)
+            else:
+                W = self._randomWeightsXavier(n_in, n_out)
             b = np.zeros((1, n_out))
             self.weights.append(W)
             self.bias.append(b)
@@ -51,8 +57,11 @@ class Network:
         return np.maximum(0, z)
     
     def _softmax(self, z):
-        exp_z = np.exp(z - np.max(z, axis=1, keepdims=True)) # estabilidad numérica
-        return exp_z / np.sum(exp_z, axis=1, keepdims=True) # normalización
+        # proteger
+        z = np.clip(z, -100, 100)
+        z_shift = z - np.max(z, axis=1, keepdims=True)
+        exp_z = np.exp(z_shift)
+        return exp_z / np.sum(exp_z, axis=1, keepdims=True)
         
     
     def _forward(self, x):
@@ -105,10 +114,10 @@ class Network:
         m = x.shape[0] # numero de ejemplos
         y_pred = activations[-1]  # salida de la red
         # Convertir y_true a one-hot encoding
-        y_true_onehot = np.zeros_like(y_pred)
+        y_true_onehot = np.zeros_like(y_pred)  # matriz de ceros del tamaño de y_pred
         y_true_onehot[np.arange(m), y_true] = 1
         # Calcular delta para la capa de salida
-        delta = (y_pred - y_true_onehot) / m  # derivada de la pérdida con softmax
+        delta = (y_pred - y_true_onehot)  # diferencia entre prediccion y verdad
         self.gradients_w = []
         self.gradients_b = []
 
@@ -116,8 +125,8 @@ class Network:
         for i in reversed(range(len(self.weights))):
             a_prev = activations[i]  # activación de la capa anterior
 
-            grad_w = a_prev.T @ delta
-            grad_b = np.sum(delta, axis=0, keepdims=True)
+            grad_w = a_prev.T @ delta / m  # gradiente de pesos
+            grad_b = np.sum(delta, axis=0, keepdims=True) / m  # gradiente de bias
 
             self.gradients_w.insert(0, grad_w)
             self.gradients_b.insert(0, grad_b)
@@ -131,7 +140,12 @@ class Network:
                     delta = delta * self._sigmoid_derivative(z_prev)
                 elif self.activation_function == 'ReLu':
                     delta = delta * self._ReLu_derivative(z_prev)
-
+        # Gradient clipping para evitar explosión de gradientes
+        max_norm = 5.0
+        for i in range(len(self.gradients_w)):
+            n = np.linalg.norm(self.gradients_w[i])
+            if n > max_norm:
+                self.gradients_w[i] *= max_norm / (n + 1e-8)
         return self.gradients_w, self.gradients_b
 
                     
@@ -151,6 +165,7 @@ class Network:
         if isinstance(datos_y, pd.Series):
             datos_y = datos_y.to_numpy()
         clases, y_idx = np.unique(datos_y, return_inverse=True) # y_idx son los indices de las clases
+        self.classes = clases  # ADDED: guardamos las clases para usar luego en test/predict
 
         # inicializar pesos
         self.input_features = datos_x.shape[1]
@@ -209,6 +224,8 @@ def stratified_split(X, y, test_size=0.3, seed=42):
     rng = np.random.default_rng(seed)
     X = np.asarray(X)
     y = np.asarray(y)
+    if y.ndim > 1:  # FIX: aplastar etiquetas
+        y = y.ravel()
     classes, y_idx = np.unique(y, return_inverse=True)
     train_idx = []
     test_idx = []
@@ -225,13 +242,16 @@ def stratified_split(X, y, test_size=0.3, seed=42):
 modelo1 = Network(learning_rate=0.01, 
                   activation_function='ReLu', 
                   layer_neurons=[8,4], 
-                  epoch=150, 
+                  epoch=200, 
                   batch_size=16)
 
 X = iris.data.features.to_numpy()
 y = iris.data.targets.to_numpy()
+if y.ndim > 1:   # FIX: aplastar aquí también
+    y = y.ravel()
 
-# (opcional) escalar
+
+# escalar para que tenga media 0 y desviacion estandar 1
 X = (X - X.mean(axis=0)) / X.std(axis=0)
 
 X_train, X_test, y_train, y_test = stratified_split(X, y, test_size=0.3, seed=7)
@@ -239,7 +259,9 @@ X_train, X_test, y_train, y_test = stratified_split(X, y, test_size=0.3, seed=7)
 modelo1.fit(X_train, y_train)
 
 y_pred = modelo1.predict(X_test)
+# mapear y_test a índices de train
+class_to_idx = {c:i for i,c in enumerate(modelo1.classes)}
+y_test_idx = np.array([class_to_idx[label] for label in y_test])
 
-# Como el modelo vio las 3 clases, índices ya coinciden
-test_acc = np.mean(y_pred == np.unique(y_test, return_inverse=True)[1])
+test_acc = np.mean(y_pred == y_test_idx)
 print(f"Accuracy test: {test_acc:.3f}")
