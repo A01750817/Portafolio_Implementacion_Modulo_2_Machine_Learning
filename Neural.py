@@ -1,3 +1,7 @@
+# Ivan Alexander Ramos Ramirez A01750817
+# Módulo 2 Implementación de una técnica de 
+# aprendizaje máquina sin el uso de un framework. (Portafolio Implementación)
+
 import numpy as np
 import pandas as pd
 from ucimlrepo import fetch_ucirepo 
@@ -110,11 +114,11 @@ class NeuralNet:
 
     def _backward(self, x, y_true, activations, zs):
         #Viene la funcion de perdida
-        m = x.shape[0] # numero de ejemplos
+        m = x.shape[0] # numero de ejemplos #ejemplo 
         y_pred = activations[-1]  # salida de la red
         # Convertir y_true a one-hot encoding
-        y_true_onehot = np.zeros_like(y_pred)  # matriz de ceros del tamaño de y_pred
-        y_true_onehot[np.arange(m), y_true] = 1
+        y_true_onehot = np.zeros_like(y_pred)  # matriz de ceros del tamaño de y_pred ejemplo: (16,3)
+        y_true_onehot[np.arange(m), y_true] = 1 # ejemplo: (1,0,0) para la clase 0
         # Calcular delta para la capa de salida
         delta = (y_pred - y_true_onehot)  # diferencia entre prediccion y verdad
         self.gradients_w = []
@@ -241,10 +245,10 @@ def stratified_split(X, y, test_size=0.3, seed=42):
 
 
 #para probar nomas
-modelo1 = NeuralNet(learning_rate=0.01, 
+modelo1 = NeuralNet(learning_rate=0.001, 
                   activation_function='ReLu', 
-                  layer_neurons=[8,4], 
-                  epoch=200, 
+                  layer_neurons=[6,4], 
+                  epoch=2000, 
                   batch_size=16)
 
 X = iris.data.features.to_numpy()
@@ -267,3 +271,6 @@ y_test_idx = np.array([class_to_idx[label] for label in y_test])
 
 test_acc = np.mean(y_pred == y_test_idx)
 print(f"Accuracy test: {test_acc:.3f}")
+#perdida test
+y_pred_test, _, _ = modelo1._forward(X_test)
+print(f"Loss test: {modelo1._CategoricalCrossEntropy(y_test_idx, y_pred_test):.3f}")
